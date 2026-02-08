@@ -1,4 +1,4 @@
-package com.wly.lol.model.vo;
+package com.wly.lol.model;
 
 import lombok.Builder;
 import lombok.Data;

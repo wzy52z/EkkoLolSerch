@@ -3,7 +3,7 @@ package com.wly.lol.service;
 import com.wly.lol.model.RankInfo;
 import com.wly.lol.model.Summoner;
 import com.wly.lol.model.match.MatchHistory;
-import com.wly.lol.model.vo.PlayerAnalysisResult;
+import com.wly.lol.model.PlayerAnalysisResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

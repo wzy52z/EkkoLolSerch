@@ -44,13 +44,7 @@ public class LolApiServiceImpl implements LolApiService {
             this.client = LcuHttpClientFactory.getInstance();
             log.info("LCU 连接成功，端口：{}",lcuInfo.getPort());
         } catch (Exception e) {
-            log.warn("LCU 连接失败，是否启动游戏:{}",e.getMessage());
-            // ❌ 【删除这一行】 throw new RuntimeException(e);
-            // 这一行是罪魁祸首！它导致 Spring 启动失败。
-
-            // ✅ 【改为】只打印警告，不抛出异常
-            log.warn("启动时未发现运行中的游戏客户端 (这很正常，程序将继续启动)");
-            this.isConnected = false;
+                this.isConnected = false;
         }
     }
     //封装GET方法
@@ -102,7 +96,7 @@ public class LolApiServiceImpl implements LolApiService {
     public Summoner getSummonerById(long summonerId) {
         // LCU 提供的标准接口：通过 ID 查人
         String json = executeGet("/lol-summoner/v1/summoners/" + summonerId);
-        log.info("召唤师原始数据 (ID: {}): {}", summonerId, json);
+        /*log.info("召唤师原始数据 (ID: {}): {}", summonerId, json);*/
         return JSON.parseObject(json, Summoner.class);
     }
     @Override
@@ -111,7 +105,11 @@ public class LolApiServiceImpl implements LolApiService {
         // 这里可以直接转，也可以根据需要处理单双排/灵活排的筛选逻辑
         return JSON.parseObject(json, RankInfo.class);
     }
-
+    @Override
+    public String getChampSelectSession() {
+        // 这个接口返回当前 BP 房间的所有详细信息（包括自己队伍的真实ID）
+        return executeGet("/lol-champ-select/v1/session");
+    }
     @Override
     public CurrentGameInfo getCurrentGameInfo() {
         String json = executeGet("/lol-spectator/v1/spectate/active-game");

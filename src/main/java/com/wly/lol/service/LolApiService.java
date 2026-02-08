@@ -21,4 +21,6 @@ public interface LolApiService {
     CurrentGameInfo getCurrentGameInfo();
 
     String getGameFlowPhase();
+    // 新增方法定义
+    String getChampSelectSession();
 }

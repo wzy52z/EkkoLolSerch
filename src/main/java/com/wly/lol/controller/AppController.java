@@ -1,18 +1,25 @@
 package com.wly.lol.controller;
 
 
+import com.wly.lol.context.GameContext;
 import com.wly.lol.model.CurrentGameInfo;
+import com.wly.lol.model.PlayerAnalysisResult;
 import com.wly.lol.model.RankInfo;
 import com.wly.lol.model.Summoner;
 import com.wly.lol.model.match.MatchHistory;
+import com.wly.lol.service.GameAnalysisService;
 import com.wly.lol.service.LolApiService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/lol")
 @RequiredArgsConstructor//自动生成构造函数注入Server,就不用Autowire了
 public class AppController {
+    private final GameAnalysisService gameAnalysisService;
+    private final GameContext gameContext;
     private final LolApiService lolApiService;
     /**
      * 获取当前登录用户信息
@@ -57,6 +64,26 @@ public class AppController {
     @GetMapping("/game/current")
     public CurrentGameInfo getCurrentGame() {
         return lolApiService.getCurrentGameInfo();
+    }
+    /**
+     * 1. 实时监控接口
+     * 返回：GameContext 里存好的 10 个人的分析结果 (带称号、评分)
+     * 地址：GET http://localhost:8080/api/lol/game/live
+     */
+    @GetMapping("/game/live")
+    public List<PlayerAnalysisResult> getLiveGameAnalysis() {
+        return gameContext.getPlayers();
+    }
+
+    /**
+     * 2. 手动查询分析接口
+     * 输入：Faker#KR1
+     * 返回：单个人的分析结果 (带称号、评分)
+     * 地址：GET http://localhost:8080/api/lol/analyze?name=Faker#KR1
+     */
+    @GetMapping("/analyze")
+    public PlayerAnalysisResult analyzeOnePlayer(@RequestParam String name) {
+        return gameAnalysisService.analyzePlayer(name);
     }
 
 }

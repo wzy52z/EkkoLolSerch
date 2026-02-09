@@ -14,9 +14,7 @@ import com.wly.lol.utils.LcuHttpClientFactory;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import com.alibaba.fastjson2.JSON;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
+import okhttp3.*;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -45,6 +43,32 @@ public class LolApiServiceImpl implements LolApiService {
             log.info("LCU 连接成功，端口：{}",lcuInfo.getPort());
         } catch (Exception e) {
                 this.isConnected = false;
+        }
+    }
+    // 通用 POST 请求
+    private String executePost(String endpoint, String jsonBody) {
+        if (!isConnected) init();
+
+        RequestBody body = RequestBody.create(
+                MediaType.parse("application/json"), jsonBody
+        );
+
+        Request request = new Request.Builder()
+                .url(baseUrl + endpoint)
+                .header("Authorization", authHeader)
+                .post(body)
+                .build();
+
+        try (Response response = client.newCall(request).execute()) {
+            if (response.isSuccessful() && response.body() != null) {
+                return response.body().string();
+            } else {
+                log.error("POST请求失败:Code = {} Msg = {}", response.code(), response.message());
+                return null;
+            }
+        } catch (IOException e) {
+            log.error("POST请求异常", e);
+            return null;
         }
     }
     //封装GET方法
@@ -80,8 +104,30 @@ public class LolApiServiceImpl implements LolApiService {
 
     @Override
     public Summoner getSummonerByName(String name) {
-        // LCU 的搜索 API
-        String json = executeGet("/lol-summoner/v1/summoners?name=" + name);
+        // 尝试方法 A: 使用 POST 数组搜索 (这是目前新版 LCU 推荐的方式)
+        // 接口: /lol-summoner/v2/summoners/names
+        // 格式: ["名字#Tag"]
+
+        try {
+            String jsonBody = String.format("[\"%s\"]", name); // 包装成 JSON 数组
+            String response = executePost("/lol-summoner/v2/summoners/names", jsonBody);
+
+            if (response != null) {
+                // 这个接口返回的是一个数组，我们需要取第一个
+                JSONArray array = JSON.parseArray(response);
+                if (!array.isEmpty()) {
+                    return array.getObject(0, Summoner.class);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("尝试 v2 POST 搜索失败，回退到 v1 GET...");
+        }
+
+        // --- 兜底方案 (如果上面失败了) ---
+        // 还是用原来的 GET，但手动处理一下 URL 编码问题
+        // 有时候 URLEncoder.encode 会把空格变成 + 号，导致 LCU 不认，所以我们手动替换 #
+        String safeName = name.replace("#", "%23"); // 手动转义 #
+        String json = executeGet("/lol-summoner/v1/summoners?name=" + safeName);
         return JSON.parseObject(json, Summoner.class);
     }
 

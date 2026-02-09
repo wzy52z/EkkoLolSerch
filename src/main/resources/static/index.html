@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>LOL 对局进化论</title>
+    <style>
+        :root {
+            --bg-dark: #121212;
+            --card-bg: #1e1e1e;
+            --text-main: #e0e0e0;
+            --text-sub: #a0a0a0;
+            --accent: #ff4757; /* 通天代红 */
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* 顶部导航 */
+        .nav {
+            background: #2d2d2d;
+            padding: 5px;
+            border-radius: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        .nav button {
+            background: transparent;
+            border: none;
+            color: var(--text-sub);
+            padding: 10px 25px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 25px;
+            transition: 0.3s;
+        }
+        .nav button.active {
+            background: var(--text-main);
+            color: var(--bg-dark);
+            font-weight: bold;
+        }
+
+        /* 搜索框 */
+        .search-area {
+            display: none;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .search-area.show { display: flex; }
+        input {
+            padding: 12px 20px;
+            border-radius: 25px;
+            border: 1px solid #444;
+            background: #252525;
+            color: white;
+            width: 250px;
+            outline: none;
+        }
+        .btn-search {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 0 25px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        /* 实时状态灯 */
+        .status-light {
+            color: #2ed573;
+            font-size: 14px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .dot {
+            width: 8px;
+            height: 8px;
+            background-color: #2ed573;
+            border-radius: 50%;
+            animation: blink 1.5s infinite;
+        }
+        @keyframes blink { 50% { opacity: 0.3; } }
+
+        /* 卡片容器 */
+        .container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 20px;
+            width: 100%;
+            max-width: 1200px;
+        }
+
+        /* 玩家卡片 */
+        .card {
+            background: var(--card-bg);
+            border-radius: 15px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid #333;
+            transition: transform 0.2s;
+        }
+        .card:hover { transform: translateY(-5px); border-color: #555; }
+
+        /* 左侧边框条：根据段位/评级变色 */
+        .card::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 0; bottom: 0;
+            width: 4px;
+            background: #555; /* 默认 */
+        }
+        .card.level-God::before { background: #ff4757; box-shadow: 0 0 10px #ff4757; }
+        .card.level-Tiger::before { background: #ffa502; }
+        .card.level-Human::before { background: #1e90ff; }
+        .card.level-Bug::before { background: #2ed573; }
+
+        .avatar {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            border: 2px solid #333;
+        }
+        .info { flex: 1; }
+        .name { font-size: 18px; font-weight: bold; margin-bottom: 2px; }
+        .tag { font-size: 12px; color: #666; background: #111; padding: 2px 6px; border-radius: 4px; margin-left: 5px; }
+        .rank { font-size: 13px; color: #888; margin-bottom: 8px; }
+
+        .stats-box {
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            padding: 8px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .score-title { font-weight: bold; font-size: 14px; }
+        .kda { color: var(--text-main); font-weight: bold; }
+        .hero-name { font-size: 12px; color: #aaa; margin-top: 4px; display: block;}
+    </style>
+</head>
+<body>
+
+<div class="nav">
+    <button id="btnLive" class="active" onclick="setMode('live')">⚡ 实时对局</button>
+    <button id="btnSearch" onclick="setMode('search')">🔍 名字查询</button>
+</div>
+
+<div id="liveStatus" class="status-light">
+    <div class="dot"></div> 正在监控游戏客户端...
+</div>
+
+<div id="searchArea" class="search-area">
+    <input type="text" id="searchInput" placeholder="输入 ID (例如: Faker#KR1)">
+    <button class="btn-search" onclick="doSearch()">分析</button>
+</div>
+
+<div id="cardContainer" class="container"></div>
+
+<script>
+    let mode = 'live';
+    let timer = null;
+
+    // 页面初始化
+    window.onload = () => {
+        setMode('live');
+    };
+
+    function setMode(m) {
+        mode = m;
+        document.getElementById('cardContainer').innerHTML = ''; // 清空
+
+        // 切换UI
+        if (m === 'live') {
+            document.getElementById('btnLive').className = 'active';
+            document.getElementById('btnSearch').className = '';
+            document.getElementById('liveStatus').style.display = 'flex';
+            document.getElementById('searchArea').classList.remove('show');
+
+            fetchLiveData();
+            if (timer) clearInterval(timer);
+            timer = setInterval(fetchLiveData, 2000); // 每2秒轮询一次
+        } else {
+            document.getElementById('btnLive').className = '';
+            document.getElementById('btnSearch').className = 'active';
+            document.getElementById('liveStatus').style.display = 'none';
+            document.getElementById('searchArea').classList.add('show');
+
+            if (timer) clearInterval(timer);
+        }
+    }
+
+    // --- 接口 1: 获取实时数据 ---
+    async function fetchLiveData() {
+        try {
+            // 调用 AppController 的 /api/lol/game/live
+            const res = await fetch('/api/lol/game/live');
+            const data = await res.json();
+            renderCards(data);
+        } catch (e) {
+            console.error("连接失败", e);
+        }
+    }
+
+    // --- 接口 2: 手动查询 ---
+    async function doSearch() {
+        const name = document.getElementById('searchInput').value;
+        if (!name) return alert("请输入名字和编号，如：Uzi#CN1");
+
+        document.getElementById('cardContainer').innerHTML = '<p style="text-align:center;width:100%;color:#666">正在分析大数据...</p>';
+
+        try {
+            // 调用 AppController 的 /api/lol/analyze
+            const res = await fetch(`/api/lol/analyze?name=${encodeURIComponent(name)}`);
+            if (!res.ok) throw new Error("查询失败");
+            const data = await res.json();
+            renderCards([data]); // 转成数组渲染
+        } catch (e) {
+            document.getElementById('cardContainer').innerHTML = '<p style="text-align:center;width:100%;color:#ff4757">未找到玩家，请确认游戏已登录</p>';
+        }
+    }
+
+    // --- 渲染逻辑 ---
+    function renderCards(list) {
+        const container = document.getElementById('cardContainer');
+        container.innerHTML = ''; // 清空旧数据
+
+        if (!list || list.length === 0) {
+            if (mode === 'live') {
+                container.innerHTML = '<p style="text-align:center;width:100%;color:#555">等待对局开始...</p>';
+            }
+            return;
+        }
+
+        list.forEach(p => {
+            // 根据称号设置颜色样式
+            let levelClass = 'level-Human';
+            let color = '#1e90ff';
+
+            if (p.scoreTitle.includes('通天代')) { levelClass = 'level-God'; color = '#ff4757'; }
+            else if (p.scoreTitle.includes('剑齿虎')) { levelClass = 'level-Tiger'; color = '#ffa502'; }
+            else if (p.scoreTitle.includes('草履虫')) { levelClass = 'level-Bug'; color = '#2ed573'; }
+
+            // 解析 KDA 描述 (假设后端传回来的是字符串)
+            const kdaText = `KDA: ${p.kda}`;
+
+            const html = `
+                <div class="card ${levelClass}">
+                    <img src="${p.avatarUrl}" class="avatar">
+                    <div class="info">
+                        <div>
+                            <span class="name">${p.name}</span>
+                            ${p.tag ? `<span class="tag">#${p.tag}</span>` : ''}
+                        </div>
+                        <div class="rank">${p.rankTier} · ${p.seasonStats}</div>
+
+                        <div class="stats-box">
+                            <span class="score-title" style="color:${color}">${p.scoreTitle}</span>
+                            <span class="kda">${kdaText}</span>
+                        </div>
+                        <span class="hero-name">${p.kdaDescription}</span>
+                    </div>
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', html);
+        });
+    }
+</script>
+
+</body>
+</html>

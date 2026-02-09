@@ -79,28 +79,31 @@ public class GameAnalysisService {
             for (int i = 0; i < analyzeCount; i++) {
                 MatchHistory.MatchGame game = games.get(i);
                 totalDuration += game.getGameDuration();
+                MatchHistory.MatchParticipant participant =  getParticipantBySummonerId(game, summoner.getSummonerId());
+                if(participant != null) {
+                    MatchHistory.MatchStats stats = participant.getStats();
 
-                MatchHistory.MatchStats stats = getParticipantBySummonerId(game, summoner.getSummonerId());
-                if (stats != null) {
-                    // 累加总数据
-                    if (stats.isWin()) wins++;
-                    k += stats.getKills();
-                    d += stats.getDeaths();
-                    a += stats.getAssists();
+                    if (stats != null) {
+                        // 累加总数据
+                        if (stats.isWin()) wins++;
+                        k += stats.getKills();
+                        d += stats.getDeaths();
+                        a += stats.getAssists();
 
-                    // 🔥【新增】提取前 10 场战绩详情用于前端展示
-                    if (recentMatches.size() < 10) {
-                        // 使用 CommunityDragon 的 CDN 获取英雄头像
-                        String champIcon = "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/" + stats.getChampionId() + ".png";
+                        // 🔥【新增】提取前 10 场战绩详情用于前端展示
+                        if (recentMatches.size() < 10) {
+                            // 使用 CommunityDragon 的 CDN 获取英雄头像
+                            String champIcon = "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/" + participant.getChampionId() + ".png";
 
-                        // 构建内部类对象
-                        recentMatches.add(PlayerAnalysisResult.MatchBrief.builder()
-                                .gameId(game.getGameId())
-                                .isWin(stats.isWin())
-                                .kdaStr(stats.getKills() + "/" + stats.getDeaths() + "/" + stats.getAssists())
-                                .championUrl(champIcon)
-                                .gameMode(game.getGameMode())
-                                .build());
+                            // 构建内部类对象
+                            recentMatches.add(PlayerAnalysisResult.MatchBrief.builder()
+                                    .gameId(game.getGameId())
+                                    .isWin(stats.isWin())
+                                    .kdaStr(stats.getKills() + "/" + stats.getDeaths() + "/" + stats.getAssists())
+                                    .championUrl(champIcon)
+                                    .gameMode(game.getGameMode())
+                                    .build());
+                        }
                     }
                 }
             }
@@ -163,7 +166,7 @@ public class GameAnalysisService {
     }
 
     // --- 辅助方法：从单局提取数据 ---
-    private MatchHistory.MatchStats getParticipantBySummonerId(MatchHistory.MatchGame game, long summonerId) {
+    private MatchHistory.MatchParticipant getParticipantBySummonerId(MatchHistory.MatchGame game, long summonerId) {
         if (game.getParticipantIdentities() == null) return null;
         int participantId = -1;
         // 1. 找ID
@@ -175,9 +178,9 @@ public class GameAnalysisService {
         }
         // 2. 找数据
         if (participantId != -1 && game.getParticipants() != null) {
-            for (var p : game.getParticipants()) {
+            for (MatchHistory.MatchParticipant p : game.getParticipants()) {
                 if (p.getParticipantId() == participantId) {
-                    return p.getStats();
+                    return p;
                 }
             }
         }
